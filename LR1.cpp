@@ -7,57 +7,12 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include "LL1.hpp"
+#include "LR1.hpp"
 #include "json.hpp"
 #define COL_WIDTH 20 // analysis output width
 
 using namespace std;
 using json = nlohmann::json;
-
-void Parser::eliminate_left_recursion()
-{
-    map<char, vector<string>> prod_map;
-    for (auto const &item : grammar.prods)
-    {
-        if (prod_map.count(item.first))
-            prod_map[item.first].push_back(item.second);
-        else
-            prod_map[item.first] = {item.second};
-    }
-
-    for (const auto &item : prod_map)
-    {
-        char k = item.first;
-        vector<string> v = item.second;
-        vector<string> left_rec;
-        for (const auto &rhs : v)
-        {
-            if (rhs[0] == k)
-                left_rec.push_back(rhs);
-        }
-        if (!left_rec.empty())
-        {
-            // delete old production
-            for (auto iter = grammar.prods.begin(); iter != grammar.prods.end(); iter++)
-            {
-                if (iter->first == k)
-                    grammar.prods.erase(iter--);
-            }
-            char new_symbol = get_new_symbol(grammar);
-            grammar.N.insert(new_symbol);
-            for (auto rhs : v)
-            {
-                if (rhs[0] != k)
-                    grammar.prods.push_back(make_pair(k, rhs + new_symbol));
-            }
-            for (auto rhs : left_rec)
-            {
-                grammar.prods.push_back(make_pair(new_symbol, rhs.substr(1) + new_symbol));
-            }
-            grammar.prods.push_back(make_pair(new_symbol, "#"));
-        }
-    }
-}
 
 void Parser::get_first()
 {
@@ -122,62 +77,6 @@ void Parser::get_first()
     // }
 }
 
-void Parser::get_follow()
-{
-    follow[grammar.start].insert('$');
-    bool updated = true;
-    while (updated)
-    {
-        updated = false;
-        for (auto &prod : grammar.prods)
-        {
-            char lhs = prod.first;
-            string rhs = prod.second;
-            for (int i = 0; i < rhs.length(); i++)
-            {
-                char B = rhs[i];
-                if (!grammar.N.count(B))
-                    continue;
-                string beta = rhs.substr(i + 1);
-                set<char> first_beta; // fisrt set of str
-                get_first_of_str(beta, first_beta);
-
-                for (auto item : first_beta)
-                {
-                    if (item != '#' && !follow[B].count(item))
-                    {
-                        follow[B].insert(item);
-                        updated = true;
-                    }
-                }
-                // A->aB or A->aBb b->epsilon, add follow(A) to follow(B)
-                if ((i + 1) == rhs.length() || first_beta.count('#'))
-                {
-                    for (auto const item : follow[lhs])
-                    {
-                        if (!follow[B].count(item))
-                        {
-                            follow[B].insert(item);
-                            updated = true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    // output FOLLOW
-    printf("FOLLOW:\n");
-    for (auto const &lhs : grammar.N)
-    {
-        printf("    %c: ", lhs);
-        for (auto item : follow[lhs])
-        {
-            printf("%c ", item);
-        }
-        printf("\n");
-    }
-}
-
 void Parser::get_first_of_str(string str, set<char> &first_str)
 {
     // if c->epsilon, next = true
@@ -208,6 +107,7 @@ void Parser::get_first_of_str(string str, set<char> &first_str)
             }
         }
     }
+
     // str -> epsilon
     if (next)
     {
@@ -215,7 +115,7 @@ void Parser::get_first_of_str(string str, set<char> &first_str)
     }
 }
 
-void Parser::generate_ll_table()
+void Parser::generate_lr_table()
 {
     M.clear(); // clear old table
     for (const auto prod : grammar.prods)
@@ -230,10 +130,10 @@ void Parser::generate_ll_table()
         // epsilon in FISRT(alpha)
         if (first_alpha.count('#'))
         {
-            for (const auto item : follow[prod.first])
-            {
-                M[make_pair(prod.first, item)] = string(1, prod.first) + "->" + prod.second;
-            }
+            // for (const auto item : follow[prod.first])
+            // {
+            //     M[make_pair(prod.first, item)] = string(1, prod.first) + "->" + prod.second;
+            // }
         }
     }
 
@@ -388,6 +288,12 @@ void Parser::analysis(string in_str)
     printf("--------------------------------------------------------------------------\n");
 }
 
+void Parser::get_dfa()
+{
+    
+    return;
+}
+
 Parser::Parser(string config_file)
 {
     load_grammar(config_file);
@@ -395,16 +301,19 @@ Parser::Parser(string config_file)
     printf("----------------Raw Grammar---------------\n");
     print_grammar(grammar);
 
-    // Eliminate left recursion
-    eliminate_left_recursion();
-    printf("---------Eliminate Left Recursion---------\n");
-    print_grammar(grammar);
-
-    // Get first and follow set
-    printf("--------------FISRT and FOLLOW------------\n");
+    // Get first set
+    printf("-----------------FISRT Set----------------\n");
     get_first();
-    get_follow();
 
-    // generat ll(1) table
-    generate_ll_table();
+    // Get Canonical Collection and DFA 
+    printf("---------Canonical Collection & DFA-------\n");
+    get_dfa();
+
+    // generat lr(1) table
+    generate_lr_table();
+}
+
+int main()
+{
+    Parser parser;
 }
