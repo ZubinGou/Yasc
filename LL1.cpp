@@ -1,57 +1,51 @@
+#include "LL1.hpp"
+
 #include <cstdio>
-#include <vector>
-#include <set>
-#include <map>
-#include <string>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
+#include <set>
 #include <sstream>
-#include <fstream>
-#include "LL1.hpp"
+#include <string>
+#include <vector>
+
 #include "json.hpp"
-#define COL_WIDTH 20 // analysis output width
+#define COL_WIDTH 20  // analysis output width
 
 using namespace std;
 using json = nlohmann::json;
 
-void Parser::eliminate_left_recursion()
-{
+void Parser::eliminate_left_recursion() {
     map<char, vector<string>> prod_map;
-    for (auto const &item : grammar.prods)
-    {
+    for (auto const &item : grammar.prods) {
         if (prod_map.count(item.first))
             prod_map[item.first].push_back(item.second);
         else
             prod_map[item.first] = {item.second};
     }
 
-    for (const auto &item : prod_map)
-    {
+    for (const auto &item : prod_map) {
         char k = item.first;
         vector<string> v = item.second;
         vector<string> left_rec;
-        for (const auto &rhs : v)
-        {
+        for (const auto &rhs : v) {
             if (rhs[0] == k)
                 left_rec.push_back(rhs);
         }
-        if (!left_rec.empty())
-        {
+        if (!left_rec.empty()) {
             // delete old production
-            for (auto iter = grammar.prods.begin(); iter != grammar.prods.end(); iter++)
-            {
+            for (auto iter = grammar.prods.begin(); iter != grammar.prods.end(); iter++) {
                 if (iter->first == k)
                     grammar.prods.erase(iter--);
             }
             char new_symbol = get_new_symbol(grammar);
             grammar.N.insert(new_symbol);
-            for (auto rhs : v)
-            {
+            for (auto rhs : v) {
                 if (rhs[0] != k)
                     grammar.prods.push_back(make_pair(k, rhs + new_symbol));
             }
-            for (auto rhs : left_rec)
-            {
+            for (auto rhs : left_rec) {
                 grammar.prods.push_back(make_pair(new_symbol, rhs.substr(1) + new_symbol));
             }
             grammar.prods.push_back(make_pair(new_symbol, "#"));
@@ -59,37 +53,26 @@ void Parser::eliminate_left_recursion()
     }
 }
 
-void Parser::get_first()
-{
+void Parser::get_first() {
     // First(T) = T
-    for (auto const &lhs : grammar.T)
-    {
+    for (auto const &lhs : grammar.T) {
         first[lhs].insert(lhs);
     }
     bool updated = true;
-    while (updated)
-    {
+    while (updated) {
         updated = false;
-        for (auto &prod : grammar.prods)
-        {
+        for (auto &prod : grammar.prods) {
             char lhs = prod.first;
             string rhs = prod.second;
-            if (grammar.T.count(rhs[0]) || rhs[0] == '#')
-            {
-                if (!first[lhs].count(rhs[0]))
-                {
+            if (grammar.T.count(rhs[0]) || rhs[0] == '#') {
+                if (!first[lhs].count(rhs[0])) {
                     updated = true;
                     first[lhs].insert(rhs[0]);
                 }
-            }
-            else
-            {
-                for (auto const c : rhs)
-                {
-                    for (auto const item : first[c])
-                    {
-                        if (item != '#' && !first[lhs].count(item))
-                        {
+            } else {
+                for (auto const c : rhs) {
+                    for (auto const item : first[c]) {
+                        if (item != '#' && !first[lhs].count(item)) {
                             first[lhs].insert(item);
                             updated = true;
                         }
@@ -102,11 +85,9 @@ void Parser::get_first()
     }
     // ouput FIRST
     printf("FIRST:\n");
-    for (auto const &lhs : grammar.N)
-    {
+    for (auto const &lhs : grammar.N) {
         printf("    %c: ", lhs);
-        for (auto item : first[lhs])
-        {
+        for (auto item : first[lhs]) {
             printf("%c ", item);
         }
         printf("\n");
@@ -122,41 +103,32 @@ void Parser::get_first()
     // }
 }
 
-void Parser::get_follow()
-{
+void Parser::get_follow() {
     follow[grammar.start].insert('$');
     bool updated = true;
-    while (updated)
-    {
+    while (updated) {
         updated = false;
-        for (auto &prod : grammar.prods)
-        {
+        for (auto &prod : grammar.prods) {
             char lhs = prod.first;
             string rhs = prod.second;
-            for (int i = 0; i < rhs.length(); i++)
-            {
+            for (int i = 0; i < rhs.length(); i++) {
                 char B = rhs[i];
                 if (!grammar.N.count(B))
                     continue;
                 string beta = rhs.substr(i + 1);
-                set<char> first_beta; // fisrt set of str
+                set<char> first_beta;  // fisrt set of str
                 get_first_of_str(beta, first_beta);
 
-                for (auto item : first_beta)
-                {
-                    if (item != '#' && !follow[B].count(item))
-                    {
+                for (auto item : first_beta) {
+                    if (item != '#' && !follow[B].count(item)) {
                         follow[B].insert(item);
                         updated = true;
                     }
                 }
                 // A->aB or A->aBb b->epsilon, add follow(A) to follow(B)
-                if ((i + 1) == rhs.length() || first_beta.count('#'))
-                {
-                    for (auto const item : follow[lhs])
-                    {
-                        if (!follow[B].count(item))
-                        {
+                if ((i + 1) == rhs.length() || first_beta.count('#')) {
+                    for (auto const item : follow[lhs]) {
+                        if (!follow[B].count(item)) {
                             follow[B].insert(item);
                             updated = true;
                         }
@@ -167,41 +139,30 @@ void Parser::get_follow()
     }
     // output FOLLOW
     printf("FOLLOW:\n");
-    for (auto const &lhs : grammar.N)
-    {
+    for (auto const &lhs : grammar.N) {
         printf("    %c: ", lhs);
-        for (auto item : follow[lhs])
-        {
+        for (auto item : follow[lhs]) {
             printf("%c ", item);
         }
         printf("\n");
     }
 }
 
-void Parser::get_first_of_str(string str, set<char> &first_str)
-{
+void Parser::get_first_of_str(string str, set<char> &first_str) {
     // if c->epsilon, next = true
     bool next = true;
-    for (auto const &c : str)
-    {
+    for (auto const &c : str) {
         if (!next)
             break;
         next = false;
-        if (grammar.T.count(c) || c == '#')
-        {
+        if (grammar.T.count(c) || c == '#') {
             if (!first_str.count(c))
                 first_str.insert(c);
-        }
-        else
-        {
-            for (auto item : first[c])
-            {
-                if (item == '#')
-                {
+        } else {
+            for (auto item : first[c]) {
+                if (item == '#') {
                     next = true;
-                }
-                else
-                {
+                } else {
                     if (!first_str.count(item))
                         first_str.insert(item);
                 }
@@ -209,29 +170,23 @@ void Parser::get_first_of_str(string str, set<char> &first_str)
         }
     }
     // str -> epsilon
-    if (next)
-    {
+    if (next) {
         first_str.insert('#');
     }
 }
 
-void Parser::generate_ll_table()
-{
-    M.clear(); // clear old table
-    for (const auto prod : grammar.prods)
-    {
+void Parser::generate_ll_table() {
+    M.clear();  // clear old table
+    for (const auto prod : grammar.prods) {
         //  A->alpha
         set<char> first_alpha;
         get_first_of_str(prod.second, first_alpha);
-        for (const auto item : first_alpha)
-        {
+        for (const auto item : first_alpha) {
             M[make_pair(prod.first, item)] = string(1, prod.first) + "->" + prod.second;
         }
         // epsilon in FISRT(alpha)
-        if (first_alpha.count('#'))
-        {
-            for (const auto item : follow[prod.first])
-            {
+        if (first_alpha.count('#')) {
+            for (const auto item : follow[prod.first]) {
                 M[make_pair(prod.first, item)] = string(1, prod.first) + "->" + prod.second;
             }
         }
@@ -239,19 +194,15 @@ void Parser::generate_ll_table()
 
     printf("\n-----------------------------LL(1) Table-----------------------\n");
     printf("\t");
-    for (auto const &symbol : grammar.T)
-    {
+    for (auto const &symbol : grammar.T) {
         printf("%c\t", symbol);
     }
     printf("\n");
 
-    for (const auto &A : grammar.N)
-    {
+    for (const auto &A : grammar.N) {
         printf("%c\t", A);
-        for (const auto &a : grammar.T)
-        {
-            for (auto k : M[make_pair(A, a)])
-            {
+        for (const auto &a : grammar.T) {
+            for (auto k : M[make_pair(A, a)]) {
                 printf("%c", k);
             }
             printf("\t");
@@ -261,18 +212,15 @@ void Parser::generate_ll_table()
     printf("\n-----------------------Init Grammar Success--------------------\n");
 }
 
-char Parser::get_new_symbol(Grammar grammar)
-{
-    for (int i = 'A'; i <= 'Z'; i++)
-    {
+char Parser::get_new_symbol(Grammar grammar) {
+    for (int i = 'A'; i <= 'Z'; i++) {
         if (!grammar.N.count(i))
             return i;
     }
     return '!';
 }
 
-void Parser::print_grammar(Grammar grammar)
-{
+void Parser::print_grammar(Grammar grammar) {
     printf("Start symbol:\t\t%c\n", grammar.start);
     printf("Terminal symbol:\t");
     for (auto const &item : grammar.T)
@@ -282,15 +230,13 @@ void Parser::print_grammar(Grammar grammar)
     for (auto const &item : grammar.N)
         printf("%c ", item);
     printf("\n\nProductions:\n");
-    for (auto const &item : grammar.prods)
-    {
+    for (auto const &item : grammar.prods) {
         printf("    %c -> %s\n", item.first, item.second.c_str());
     }
     printf("\n");
 }
 
-void Parser::print_analysis_state(int ip, string output, string left_sentence)
-{
+void Parser::print_analysis_state(int ip, string output, string left_sentence) {
     std::stringstream stack_info;
     stack_info << "[" << analysis_stack[0];
     for (int i = 1; i < analysis_stack.size(); i++)
@@ -302,8 +248,7 @@ void Parser::print_analysis_state(int ip, string output, string left_sentence)
          << setw(COL_WIDTH) << left_sentence << endl;
 }
 
-void Parser::load_grammar(string config_file)
-{
+void Parser::load_grammar(string config_file) {
     ifstream grammar_config(config_file);
     json j;
     grammar_config >> j;
@@ -323,8 +268,7 @@ void Parser::load_grammar(string config_file)
     grammar.T.insert('$');
 }
 
-void Parser::analysis(string in_str)
-{
+void Parser::analysis(string in_str) {
     input_string = in_str + "$";
     // init stack
     analysis_stack.clear();
@@ -340,33 +284,25 @@ void Parser::analysis(string in_str)
          << setw(COL_WIDTH) << "Output"
          << setw(COL_WIDTH) << "Left Sentence" << endl;
     print_analysis_state(ip, "", left_sentence);
-    while (top != '$')
-    {
+    while (top != '$') {
         in = input_string[ip];
         // X is T or $
-        if (grammar.T.count(top))
-        {
+        if (grammar.T.count(top)) {
             // if match, pop and forward
-            if (top == in)
-            {
+            if (top == in) {
                 analysis_stack.pop_back();
                 ip++;
                 print_analysis_state(ip, "", left_sentence);
-            }
-            else
-            {
+            } else {
                 printf("Error: input not match!\n");
                 break;
             }
-        }
-        else // X is N
+        } else  // X is N
         {
             string s = M[make_pair(top, in)];
-            if (!s.empty())
-            {
+            if (!s.empty()) {
                 analysis_stack.pop_back();
-                for (int i = s.size() - 1; i >= 3; i--)
-                {
+                for (int i = s.size() - 1; i >= 3; i--) {
                     if (s[i] != '#')
                         analysis_stack.push_back(s[i]);
                 }
@@ -376,9 +312,7 @@ void Parser::analysis(string in_str)
                     rhs = "";
                 left_sentence.replace(pos, 1, rhs);
                 print_analysis_state(ip, s, left_sentence);
-            }
-            else
-            {
+            } else {
                 printf("Error: M[%c][%c] is empty.\n", top, in);
                 break;
             }
@@ -388,8 +322,7 @@ void Parser::analysis(string in_str)
     printf("--------------------------------------------------------------------------\n");
 }
 
-Parser::Parser(string config_file)
-{
+Parser::Parser(string config_file) {
     load_grammar(config_file);
 
     printf("----------------Raw Grammar---------------\n");
