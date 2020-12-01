@@ -55,9 +55,8 @@ class Parser {
     vector<set<Item>> canonical_collection;  // canonical collection
     vector<map<char, int>> dfa;              // dfa
     vector<char> analysis_stack;             // analysis stack
-    map<pair<char, char>, string> M;         // analysis table
-    vector<vector<pair<char, int>>> table_action;
-    vector<vector<int>> table_goto;
+    map<pair<int, char>, pair<char, int>> table_action;
+    map<pair<int, char>, int> table_goto;
 
     void expand_grammar();
     void get_first();

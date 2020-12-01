@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "json.hpp"
+#include "lexer.hpp"
 #define COL_WIDTH 20  // analysis output width
 
 using namespace std;
@@ -96,41 +97,76 @@ void Parser::get_first_of_str(string str, set<char> &first_str) {
 }
 
 void Parser::generate_lr_table() {
-    M.clear();  // clear old table
-    for (const auto prod : grammar.prods) {
-        //  A->alpha
-        set<char> first_alpha;
-        get_first_of_str(prod.second, first_alpha);
-        for (const auto item : first_alpha) {
-            M[make_pair(prod.first, item)] = string(1, prod.first) + "->" + prod.second;
+    table_action.clear();
+    table_goto.clear();
+
+    for (int i = 0; i < canonical_collection.size(); i++) {
+        // table action
+        for (Item item : canonical_collection[i]) {
+            if (item.dot == item.prod.second.size()) {  // Rx
+                if (item.prod.first == 'Z') {           // ACC
+                    if (item.lookahead == '$')
+                        table_action[make_pair(i, '$')] = make_pair('A', 0);
+                } else {  // Rx
+                    int idx = find(grammar.prods.begin(), grammar.prods.end(), item.prod) - grammar.prods.begin();
+                    table_action[make_pair(i, item.lookahead)] = make_pair('R', idx);
+                }
+            } else {  // Sx
+                char a = item.prod.second[item.dot];
+                if (grammar.T.count(a))
+                    table_action[make_pair(i, a)] = make_pair('S', dfa[i][a]);
+            }
         }
-        // epsilon in FISRT(alpha)
-        if (first_alpha.count('#')) {
-            // for (const auto item : follow[prod.first])
-            // {
-            //     M[make_pair(prod.first, item)] = string(1, prod.first) + "->" + prod.second;
-            // }
+        // table goto
+        for (auto p : dfa[i]) {
+            if (grammar.N.count(p.first)) {
+                table_goto[make_pair(i, p.first)] = p.second;
+                cout << "goto " << endl;
+            }
         }
     }
 
-    printf("\n-----------------------------LL(1) Table-----------------------\n");
+    printf("\n---------------------------------------------LR(1) Table--------------------------------------\n");
+    for (int i = 0; i < grammar.T.size() / 2; i++)
+        printf("\t");
+    printf("action");
+    for (int i = 0; i < grammar.N.size() / 2 + grammar.T.size() / 2; i++)
+        printf("\t");
+    printf("|\tgoto\n");
+
     printf("\t");
-    for (auto const &symbol : grammar.T) {
-        printf("%c\t", symbol);
+    for (auto const &t : grammar.T) {
+        printf("%c\t", t);
+    }
+    printf("| ");
+    for (auto const &n : grammar.N) {
+        printf("%c\t", n);
     }
     printf("\n");
 
-    for (const auto &A : grammar.N) {
-        printf("%c\t", A);
-        for (const auto &a : grammar.T) {
-            for (auto k : M[make_pair(A, a)]) {
-                printf("%c", k);
-            }
-            printf("\t");
+    for (int i = 0; i < canonical_collection.size(); i++) {
+        printf("%d\t", i);
+        for (const auto &t : grammar.T) {
+            char action = table_action[make_pair(i, t)].first;
+            if (action == 'R')
+                printf("%c%d\t", 'R', table_action[make_pair(i, t)].second);
+            else if (action == 'S')
+                printf("%c%d\t", 'S', table_action[make_pair(i, t)].second);
+            else if (action == 'A')
+                printf("ACC\t");
+            else
+                printf("\t");
+        }
+        printf("| ");
+        for (const auto &n : grammar.N) {
+            if (table_goto.count(make_pair(i, n)))
+                printf("%d\t", table_goto[make_pair(i, n)]);
+            else
+                printf("\t");
         }
         printf("\n");
     }
-    printf("\n-----------------------Init Grammar Success--------------------\n");
+    printf("\n---------------------------------------Init Grammar Success-----------------------------------\n");
 }
 
 char Parser::get_new_symbol(Grammar grammar) {
@@ -220,7 +256,7 @@ void Parser::analysis(string in_str) {
             }
         } else  // X is N
         {
-            string s = M[make_pair(top, in)];
+            string s = "";
             if (!s.empty()) {
                 analysis_stack.pop_back();
                 for (int i = s.size() - 1; i >= 3; i--) {
@@ -244,7 +280,7 @@ void Parser::analysis(string in_str) {
 }
 
 void Parser::expand_grammar() {
-    grammar.prods.insert(grammar.prods.begin(), make_pair('Z', "S#"));
+    grammar.prods.insert(grammar.prods.begin(), make_pair('Z', "S"));
 }
 
 void Parser::closure(set<Item> &I) {
@@ -292,10 +328,6 @@ set<Item> Parser::go(set<Item> I, char x) {
         }
     }
     closure(next_items);
-    printf("Items: ");
-    print_items(I);
-    printf("next te:");
-    print_items(next_items);
     return next_items;
 }
 
@@ -325,7 +357,7 @@ void Parser::print_items(set<Item> items) {
 void Parser::get_dfa() {
     // init items
     Item i;
-    i.lookahead = '#';
+    i.lookahead = '$';
     i.dot = 0;
     i.prod.first = 'Z';
     i.prod.second = string(1, grammar.start);
@@ -333,13 +365,16 @@ void Parser::get_dfa() {
     set<Item> I;
     I.insert(i);
     closure(I);
-    
+
     canonical_collection.push_back(I);
 
     queue<pair<int, set<Item>>> remain_items;
     remain_items.push(make_pair(0, I));
     while (!remain_items.empty()) {
         int idx = remain_items.front().first;
+        while (dfa.size() < idx + 1) {
+            dfa.push_back(map<char, int>());
+        }
         set<Item> cur_items = remain_items.front().second;
         remain_items.pop();
         set<char> TN;
@@ -354,6 +389,7 @@ void Parser::get_dfa() {
                     canonical_collection.push_back(next_items);
                     remain_items.push(make_pair(next_idx, next_items));
                 }
+
                 dfa[idx][t] = next_idx;
             }
         }
@@ -366,9 +402,9 @@ void Parser::get_dfa() {
         print_items(canonical_collection[i]);
         // print dfa
         for (auto m : dfa[i]) {
-            printf("\n--%c-->I%d", m.first, m.second);
+            printf("%c ==> I%d\n", m.first, m.second);
         }
-        printf("\n\n");
+        printf("\n");
     }
 }
 
@@ -392,5 +428,17 @@ Parser::Parser(string config_file) {
 }
 
 int main() {
-    Parser parser;
+    Lexer lexer;
+
+    Parser parser("./grammar.json");
+
+    cout << "Input: ";
+    while (cin.getline(lexer.src, 100))  // ctrl-z to stop
+    {
+        string tokenStream = lexer.getTokenStream();
+        cout << "Token stream:" << tokenStream << endl;
+        parser.analysis(tokenStream);
+        cout << "Input: ";
+    }
+    return 0;
 }
