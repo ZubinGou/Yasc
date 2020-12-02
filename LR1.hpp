@@ -54,7 +54,7 @@ class Parser {
     map<char, set<char>> first;              // first set
     vector<set<Item>> canonical_collection;  // canonical collection
     vector<map<char, int>> dfa;              // dfa
-    vector<char> analysis_stack;             // analysis stack
+    vector<pair<int, char>> analysis_stack;  // analysis stack <state, symbol>
     map<pair<int, char>, pair<char, int>> table_action;
     map<pair<int, char>, int> table_goto;
 
@@ -69,7 +69,7 @@ class Parser {
     char get_new_symbol(Grammar grammar);
     void print_items(set<Item>);
     void print_grammar(Grammar grammar);
-    void print_analysis_state(int ip, string output, string left_sentence);
+    void print_analysis_state(int ip, string output);
     void load_grammar(string config_file);
 };
 

@@ -121,7 +121,6 @@ void Parser::generate_lr_table() {
         for (auto p : dfa[i]) {
             if (grammar.N.count(p.first)) {
                 table_goto[make_pair(i, p.first)] = p.second;
-                cout << "goto " << endl;
             }
         }
     }
@@ -193,16 +192,21 @@ void Parser::print_grammar(Grammar grammar) {
     printf("\n");
 }
 
-void Parser::print_analysis_state(int ip, string output, string left_sentence) {
+void Parser::print_analysis_state(int ip, string output) {
     std::stringstream stack_info;
-    stack_info << "[" << analysis_stack[0];
+    string str_now = "";
     for (int i = 1; i < analysis_stack.size(); i++)
-        stack_info << ", " << analysis_stack[i];
+        str_now += analysis_stack[i].second;
+    str_now += input_string.substr(ip);
+
+    stack_info << "[" << analysis_stack[0].first;
+    for (int i = 1; i < analysis_stack.size(); i++)
+        stack_info << " " << analysis_stack[i].second << " " << analysis_stack[i].first;
     stack_info << "]";
     cout << left << setw(COL_WIDTH * 2) << stack_info.str()
          << setw(COL_WIDTH) << input_string.substr(ip)
          << setw(COL_WIDTH) << output
-         << setw(COL_WIDTH) << left_sentence << endl;
+         << setw(COL_WIDTH) << str_now << endl;
 }
 
 void Parser::load_grammar(string config_file) {
@@ -221,7 +225,6 @@ void Parser::load_grammar(string config_file) {
     for (const auto &item : j["productions"].items())
         for (const auto &val : item.value())
             grammar.prods.push_back(make_pair(item.key()[0], val.get<string>()));
-
     grammar.T.insert('$');
 }
 
@@ -229,52 +232,40 @@ void Parser::analysis(string in_str) {
     input_string = in_str + "$";
     // init stack
     analysis_stack.clear();
-    analysis_stack.push_back('$');
-    analysis_stack.push_back(grammar.start);
+    analysis_stack.push_back(make_pair(0, '-'));
     int ip = 0;
-    // @top : top of stack
-    // @in : current input char
-    char top = analysis_stack.back(), in;
-    string left_sentence = string(1, grammar.start);
-    cout << left << setw(COL_WIDTH * 2) << "\nStack"
+    cout << endl
+         << left << setw(COL_WIDTH * 2) << "Stack"
          << setw(COL_WIDTH) << "Input"
-         << setw(COL_WIDTH) << "Output"
-         << setw(COL_WIDTH) << "Left Sentence" << endl;
-    print_analysis_state(ip, "", left_sentence);
-    while (top != '$') {
-        in = input_string[ip];
-        // X is T or $
-        if (grammar.T.count(top)) {
-            // if match, pop and forward
-            if (top == in) {
+         << setw(COL_WIDTH) << "Action"
+         << setw(COL_WIDTH) << "Normal-order Reduction" << endl;
+
+    while (1) {
+        char in = input_string[ip];
+        int state = analysis_stack.back().first;
+        if (table_action[make_pair(state, in)].first == 'S') {
+            int new_state = table_action[make_pair(state, in)].second;
+            print_analysis_state(ip, "Shift " + to_string(new_state));
+            analysis_stack.push_back(make_pair(new_state, in));
+            ip++
+        } else if (table_action[make_pair(state, in)].first == 'R') {
+            pair<char, string> p = grammar.prods[table_action[make_pair(state, in)].second];
+            string lhs = string(1, p.first);
+            string rhs = p.second;
+            print_analysis_state(ip, "Reduce by " + lhs + "->" + rhs);
+
+            for (int i = 0; i < p.second.length(); i++)
                 analysis_stack.pop_back();
-                ip++;
-                print_analysis_state(ip, "", left_sentence);
-            } else {
-                printf("Error: input not match!\n");
-                break;
-            }
-        } else  // X is N
-        {
-            string s = "";
-            if (!s.empty()) {
-                analysis_stack.pop_back();
-                for (int i = s.size() - 1; i >= 3; i--) {
-                    if (s[i] != '#')
-                        analysis_stack.push_back(s[i]);
-                }
-                size_t pos = left_sentence.find(s[0]);
-                string rhs = s.substr(3);
-                if (rhs == "#")
-                    rhs = "";
-                left_sentence.replace(pos, 1, rhs);
-                print_analysis_state(ip, s, left_sentence);
-            } else {
-                printf("Error: M[%c][%c] is empty.\n", top, in);
-                break;
-            }
+            int state = analysis_stack.back().first;
+            analysis_stack.push_back(make_pair(table_goto[make_pair(state, p.first)], p.first));
+        } else if (table_action[make_pair(state, in)].first == 'A') {
+            // left_sentence.replace
+            print_analysis_state(ip, "ACC");
+            break;
+        } else {
+            printf("Error\n");
+            break;
         }
-        top = analysis_stack.back();
     }
     printf("--------------------------------------------------------------------------\n");
 }

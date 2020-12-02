@@ -68,6 +68,7 @@ map<int, pair<string, string>> token_map = {
     {Inc, make_pair("INC", "++")},
     {Sub, make_pair("SUB", "-")},
     {Dec, make_pair("DEC", "--")},
+    {Div, make_pair("DIV", "/")},
     {Mod, make_pair("MOD", "%")},
     {Bitwise_or, make_pair("BITWISE_OR", "|")},
     {Bitwise_xor, make_pair("BITWISE_XOR", "^")},

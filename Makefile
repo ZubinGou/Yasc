@@ -1,5 +1,6 @@
 .PHONY: rc
 .PHONY: ll1
+.PHONY: lr1
 
 rc: RC# build & run
 	./RC
