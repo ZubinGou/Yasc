@@ -1,3 +1,5 @@
+#include "LL1.hpp"
+
 #include <cstdio>
 #include <fstream>
 #include <iomanip>
@@ -7,9 +9,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "LL1.hpp"
-#include "lexer.hpp"
+
 #include "json.hpp"
+#include "lexer.hpp"
 
 #define COL_WIDTH 20  // analysis output width
 
@@ -342,17 +344,15 @@ Parser::Parser(string config_file) {
     generate_ll_table();
 }
 
-
 // driver
-int main()
-{
+int main() {
     Lexer lexer;
 
     Parser parser("./grammar.json");
 
     cout << "Input: ";
-    while (cin.getline(lexer.src, 100)) // ctrl-z to stop
-    {   
+    while (cin.getline(lexer.src, 100))  // ctrl-z to stop
+    {
         string tokenStream = lexer.getTokenStream();
         cout << "Token stream:" << tokenStream << endl;
         parser.analysis(tokenStream);

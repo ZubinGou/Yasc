@@ -13,7 +13,8 @@
 
 #include "json.hpp"
 #include "lexer.hpp"
-#define COL_WIDTH 20  // analysis output width
+
+#define COL_WIDTH 22  // analysis output width
 
 using namespace std;
 using json = nlohmann::json;
@@ -247,7 +248,7 @@ void Parser::analysis(string in_str) {
             int new_state = table_action[make_pair(state, in)].second;
             print_analysis_state(ip, "Shift " + to_string(new_state));
             analysis_stack.push_back(make_pair(new_state, in));
-            ip++
+            ip++;
         } else if (table_action[make_pair(state, in)].first == 'R') {
             pair<char, string> p = grammar.prods[table_action[make_pair(state, in)].second];
             string lhs = string(1, p.first);
@@ -307,6 +308,7 @@ void Parser::closure(set<Item> &I) {
         }
     }
 }
+
 set<Item> Parser::go(set<Item> I, char x) {
     set<Item> next_items;
     for (auto item : I) {

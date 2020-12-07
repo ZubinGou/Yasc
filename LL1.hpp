@@ -1,34 +1,32 @@
 #ifndef LL1_HPP
 #define LL1_HPP
 
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
-#include <map>
 
 using namespace std;
 
-struct Grammar
-{
-    char start;
-    set<char> T;                                // 终结符
-    set<char> N;                                // 非终结符
-    vector<pair<char, string>> prods; //产生式
+struct Grammar {
+    char start;                        //开始符号
+    set<char> T;                       // 终结符
+    set<char> N;                       // 非终结符
+    vector<pair<char, string>> prods;  //产生式
 };
 
-class Parser
-{
-public:
-    string input_string; // input string
+class Parser {
+   public:
+    string input_string;  // input string
     Parser(string config_file = "./grammar.json");
-    void analysis(string input_string); // Predictive analysis
+    void analysis(string input_string);  // Predictive analysis
 
-private:
+   private:
     Grammar grammar;
-    map<char, set<char>> first;           // first set
-    map<char, set<char>> follow;          // follow set
-    vector<char> analysis_stack;               // analysis stack
-    map<pair<char, char>, string> M; // analysis table
+    map<char, set<char>> first;       // first set
+    map<char, set<char>> follow;      // follow set
+    vector<char> analysis_stack;      // analysis stack
+    map<pair<char, char>, string> M;  // analysis table
 
     void eliminate_left_recursion();
     void get_first();

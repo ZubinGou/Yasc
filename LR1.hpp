@@ -41,8 +41,6 @@ struct Item  // LR1 item
     }
 };
 
-// typedef set<Item> Items;  //  LR1 item set
-
 class Parser {
    public:
     string input_string;  // input string
